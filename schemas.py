@@ -48,3 +48,24 @@ class CandidateOut(BaseModel):
 
 class StageUpdate(BaseModel):
     stage: str
+
+
+class PayrollAccrueIn(BaseModel):
+    employee_id: int
+    period: str  # "YYYY-MM"
+    amount_byn: str  # Decimal as str
+
+
+class PayrollPayIn(BaseModel):
+    employee_id: int
+    period: str  # "YYYY-MM"
+
+
+class PayrollEntryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    employee_id: int
+    period: str
+    amount_byn: str
+    status: str

@@ -7,14 +7,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.runtime.deps import get_session
+from core.runtime.core import Core
+from core.runtime.deps import get_core, get_session
 from core.runtime.funnel import FunnelBoardOut, FunnelCard, build_board
-from modules.hr.models import Candidate, Employee
+from modules.hr.models import Candidate, Employee, PayrollEntry
 from modules.hr.schemas import (
     CandidateCreate,
     CandidateOut,
     EmployeeCreate,
     EmployeeOut,
+    PayrollAccrueIn,
+    PayrollEntryOut,
+    PayrollPayIn,
     StageUpdate,
 )
 from modules.hr.stages import STAGES
@@ -97,3 +101,84 @@ async def update_candidate(
     await session.commit()
     await session.refresh(obj)
     return obj
+
+
+# --- Зарплата (payroll) ---
+
+
+@router.post("/payroll/accrue", response_model=PayrollEntryOut, status_code=201)
+async def payroll_accrue(
+    payload: PayrollAccrueIn,
+    core: Core = Depends(get_core),
+    session: AsyncSession = Depends(get_session),
+):
+    """Начислить зарплату сотруднику за период.
+
+    Создаёт PayrollEntry(status=pending) и эмитит hr.payroll.accrued в outbox.
+    """
+    emp = await session.get(Employee, payload.employee_id)
+    if emp is None:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+
+    entry = PayrollEntry(
+        employee_id=payload.employee_id,
+        period=payload.period,
+        amount_byn=payload.amount_byn,
+        status="pending",
+    )
+    session.add(entry)
+    await session.flush()  # получаем entry.id
+
+    core.event_bus.emit(
+        session,
+        "hr.payroll.accrued",
+        {
+            "employee_id": emp.id,
+            "employee_name": emp.full_name,
+            "period": payload.period,
+            "amount_byn": payload.amount_byn,
+            "entity_ref": f"payroll:{entry.id}",
+        },
+    )
+    await session.commit()
+    await session.refresh(entry)
+    return entry
+
+
+@router.post("/payroll/pay", response_model=PayrollEntryOut)
+async def payroll_pay(
+    payload: PayrollPayIn,
+    core: Core = Depends(get_core),
+    session: AsyncSession = Depends(get_session),
+):
+    """Выплатить начисленную зарплату (status pending → paid).
+
+    Ищет PayrollEntry по employee_id+period+status=pending.
+    Идемпотентен: если pending-записи нет — 404.
+    """
+    row = await session.execute(
+        select(PayrollEntry).where(
+            PayrollEntry.employee_id == payload.employee_id,
+            PayrollEntry.period == payload.period,
+            PayrollEntry.status == "pending",
+        )
+    )
+    entry = row.scalars().first()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Начисление не найдено или уже выплачено")
+
+    entry.status = "paid"
+
+    core.event_bus.emit(
+        session,
+        "hr.payroll.paid",
+        {
+            "employee_id": entry.employee_id,
+            "period": entry.period,
+            "amount_byn": entry.amount_byn,
+            "entity_ref": f"payroll:{entry.id}",
+        },
+    )
+    await session.commit()
+    await session.refresh(entry)
+    return entry
