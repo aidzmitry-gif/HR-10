@@ -10,12 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.runtime.core import Core
 from core.runtime.deps import get_core, get_session
 from core.runtime.funnel import FunnelBoardOut, FunnelCard, build_board
-from modules.hr.models import Candidate, Employee, PayrollEntry
+from modules.hr.models import Candidate, Employee, OkkScore, PayrollEntry
 from modules.hr.schemas import (
     CandidateCreate,
     CandidateOut,
     EmployeeCreate,
     EmployeeOut,
+    OkkScoreCreate,
+    OkkScoreOut,
     PayrollAccrueIn,
     PayrollEntryOut,
     PayrollPayIn,
@@ -209,3 +211,45 @@ async def payroll_pay(
     await session.commit()
     await session.refresh(entry)
     return entry
+
+
+# --- ОКК-оценки ---
+
+
+@router.get("/okk-scores", response_model=list[OkkScoreOut])
+async def list_okk_scores(
+    employee_id: int | None = None,
+    period: str | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Список ОКК-оценок с опциональными фильтрами по сотруднику и периоду."""
+    q = select(OkkScore).order_by(OkkScore.id.desc())
+    if employee_id is not None:
+        q = q.where(OkkScore.employee_id == employee_id)
+    if period is not None:
+        q = q.where(OkkScore.period == period)
+    return (await session.execute(q)).scalars().all()
+
+
+@router.post("/okk-scores", response_model=OkkScoreOut, status_code=201)
+async def create_okk_score(
+    payload: OkkScoreCreate,
+    session: AsyncSession = Depends(get_session),
+):
+    """Создать ОКК-оценку. total = discipline + quality + service + teamwork."""
+    data = payload.model_dump()
+    data["total"] = data["discipline"] + data["quality"] + data["service"] + data["teamwork"]
+    obj = OkkScore(**data)
+    session.add(obj)
+    await session.commit()
+    await session.refresh(obj)
+    return obj
+
+
+@router.get("/okk-scores/{score_id}", response_model=OkkScoreOut)
+async def get_okk_score(score_id: int, session: AsyncSession = Depends(get_session)):
+    """Одна ОКК-оценка по id."""
+    obj = await session.get(OkkScore, score_id)
+    if obj is None:
+        raise HTTPException(status_code=404, detail="ОКК-оценка не найдена")
+    return obj

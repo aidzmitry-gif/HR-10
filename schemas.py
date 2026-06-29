@@ -69,3 +69,27 @@ class PayrollEntryOut(BaseModel):
     period: str
     amount_byn: str
     status: str
+
+
+class OkkScoreCreate(BaseModel):
+    employee_id: int
+    period: str  # "YYYY-MM"
+    discipline: int = 0  # 0-25
+    quality: int = 0  # 0-25
+    service: int = 0  # 0-25
+    teamwork: int = 0  # 0-25
+    comment: str = ""
+
+
+class OkkScoreOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    employee_id: int
+    period: str
+    discipline: int
+    quality: int
+    service: int
+    teamwork: int
+    total: int
+    comment: str

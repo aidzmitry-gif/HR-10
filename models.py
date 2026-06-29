@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db.base import Base
@@ -58,4 +58,22 @@ class PayrollEntry(Base):
     amount_byn: Mapped[str] = mapped_column(String(20))  # Decimal as str
     # ponytail: статус — строка, не enum; апгрейд до Enum если стадий станет >2
     status: Mapped[str] = mapped_column(String(16), default="pending", server_default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class OkkScore(Base):
+    """ОКК-оценка сотрудника за период: дисциплина, качество, сервис, командная."""
+
+    __tablename__ = "okk_score"
+    __table_args__ = {"schema": "hr"}
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    employee_id: Mapped[int] = mapped_column(ForeignKey("hr.employee.id"))
+    period: Mapped[str] = mapped_column(String(7))  # "YYYY-MM"
+    discipline: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # 0-25
+    quality: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # 0-25
+    service: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # 0-25
+    teamwork: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # 0-25
+    total: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # сумма 0-100
+    comment: Mapped[str] = mapped_column(String(500), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
