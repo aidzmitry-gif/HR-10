@@ -106,6 +106,33 @@ async def update_candidate(
 # --- Зарплата (payroll) ---
 
 
+@router.get("/payroll", response_model=list[PayrollEntryOut])
+async def list_payroll(
+    employee_id: int | None = None,
+    period: str | None = None,
+    status: str | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Список начислений с опциональными фильтрами."""
+    q = select(PayrollEntry).order_by(PayrollEntry.id.desc())
+    if employee_id is not None:
+        q = q.where(PayrollEntry.employee_id == employee_id)
+    if period is not None:
+        q = q.where(PayrollEntry.period == period)
+    if status is not None:
+        q = q.where(PayrollEntry.status == status)
+    return (await session.execute(q)).scalars().all()
+
+
+@router.get("/payroll/{entry_id}", response_model=PayrollEntryOut)
+async def get_payroll_entry(entry_id: int, session: AsyncSession = Depends(get_session)):
+    """Одна запись начисления."""
+    obj = await session.get(PayrollEntry, entry_id)
+    if obj is None:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    return obj
+
+
 @router.post("/payroll/accrue", response_model=PayrollEntryOut, status_code=201)
 async def payroll_accrue(
     payload: PayrollAccrueIn,
