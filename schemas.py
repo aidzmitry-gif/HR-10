@@ -71,6 +71,13 @@ class PayrollEntryOut(BaseModel):
     status: str
 
 
+class PayrollPeriodSummary(BaseModel):
+    period: str        # "YYYY-MM"
+    total_byn: str     # сумма amount_byn через Decimal, возвращать str
+    count: int
+    pending_count: int
+
+
 class OkkScoreCreate(BaseModel):
     employee_id: int
     period: str  # "YYYY-MM"
