@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from core.runtime.contract import ModuleContract, Widget
 from core.runtime.core import Core
-from modules.hr import routes
+from modules.hr import profile_routes, routes
 
 
 class HrModule(ModuleContract):
@@ -13,6 +13,7 @@ class HrModule(ModuleContract):
 
     def register(self, core: Core) -> None:
         core.include_router(routes.router, prefix=self.api_prefix)
+        core.include_router(profile_routes.router, prefix=self.api_prefix)
         core.register_widget(Widget("hr", "HR", source="hr.employees"))
 
 

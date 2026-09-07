@@ -1,10 +1,10 @@
 """ORM-модели модуля HR (схема ``hr.*``)."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db.base import Base
@@ -22,6 +22,23 @@ class Employee(Base):
     department: Mapped[str] = mapped_column(String(128), default="", server_default="")
     status: Mapped[str] = mapped_column(String(32), default="active", server_default="active")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class EmployeeProfile(Base):
+    """Private self-service fields; never serialized through EmployeeOut."""
+
+    __tablename__ = "employee_profile"
+    __table_args__ = {"schema": "hr"}
+
+    employee_id: Mapped[int] = mapped_column(ForeignKey("hr.employee.id"), primary_key=True)
+    birth_date: Mapped[date | None] = mapped_column(Date)
+    phone: Mapped[str] = mapped_column(String(40), default="", server_default="")
+    city: Mapped[str] = mapped_column(String(128), default="", server_default="")
+    education: Mapped[str] = mapped_column(String(500), default="", server_default="")
+    children_birth_dates: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="draft", server_default="draft")
+    revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Candidate(Base):

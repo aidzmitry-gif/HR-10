@@ -19,6 +19,7 @@ class EmployeeOut(BaseModel):
     position: str
     department: str
     status: str
+    profile_status: str = "not_started"
 
 
 class CandidateCreate(BaseModel):
@@ -69,6 +70,13 @@ class PayrollEntryOut(BaseModel):
     period: str
     amount_byn: str
     status: str
+
+
+class PayrollPeriodSummary(BaseModel):
+    period: str        # "YYYY-MM"
+    total_byn: str     # сумма amount_byn через Decimal, возвращать str
+    count: int
+    pending_count: int
 
 
 class OkkScoreCreate(BaseModel):

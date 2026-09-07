@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from itertools import groupby
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.runtime.core import Core
 from core.runtime.deps import get_core, get_session
 from core.runtime.funnel import FunnelBoardOut, FunnelCard, build_board
-from modules.hr.models import Candidate, Employee, OkkScore, PayrollEntry
+from modules.hr.models import Candidate, Employee, EmployeeProfile, OkkScore, PayrollEntry
 from modules.hr.schemas import (
     CandidateCreate,
     CandidateOut,
@@ -21,6 +22,7 @@ from modules.hr.schemas import (
     PayrollAccrueIn,
     PayrollEntryOut,
     PayrollPayIn,
+    PayrollPeriodSummary,
     StageUpdate,
 )
 from modules.hr.stages import STAGES
@@ -34,7 +36,14 @@ router = APIRouter(tags=["hr"])
 @router.get("/employees", response_model=list[EmployeeOut])
 async def list_employees(session: AsyncSession = Depends(get_session)):
     """Сотрудники."""
-    return (await session.execute(select(Employee).order_by(Employee.id.desc()))).scalars().all()
+    rows = (await session.execute(
+        select(Employee, EmployeeProfile.status).outerjoin(
+            EmployeeProfile, EmployeeProfile.employee_id == Employee.id,
+        ).order_by(Employee.id.desc())
+    )).all()
+    return [EmployeeOut.model_validate(employee).model_copy(update={
+        "profile_status": profile_status or "not_started",
+    }) for employee, profile_status in rows]
 
 
 @router.post("/employees", response_model=EmployeeOut, status_code=201)
@@ -124,6 +133,26 @@ async def list_payroll(
     if status is not None:
         q = q.where(PayrollEntry.status == status)
     return (await session.execute(q)).scalars().all()
+
+
+@router.get("/payroll/summary", response_model=list[PayrollPeriodSummary])
+async def payroll_summary(session: AsyncSession = Depends(get_session)):
+    """Сводка начислений по периодам: итог BYN, кол-во, ожидает."""
+    rows = (
+        await session.execute(select(PayrollEntry).order_by(PayrollEntry.period.asc()))
+    ).scalars().all()
+    result: list[PayrollPeriodSummary] = []
+    for period, group in groupby(rows, key=lambda r: r.period):
+        items = list(group)
+        total = sum(Decimal(r.amount_byn) for r in items)
+        pending = sum(1 for r in items if r.status == "pending")
+        result.append(PayrollPeriodSummary(
+            period=period,
+            total_byn=str(total),
+            count=len(items),
+            pending_count=pending,
+        ))
+    return result
 
 
 @router.get("/payroll/{entry_id}", response_model=PayrollEntryOut)
