@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.runtime.core import Core
 from core.runtime.deps import get_core, get_session
 from core.runtime.funnel import FunnelBoardOut, FunnelCard, build_board
-from modules.hr.models import Candidate, Employee, OkkScore, PayrollEntry
+from modules.hr.models import Candidate, Employee, EmployeeProfile, OkkScore, PayrollEntry
 from modules.hr.schemas import (
     CandidateCreate,
     CandidateOut,
@@ -36,7 +36,14 @@ router = APIRouter(tags=["hr"])
 @router.get("/employees", response_model=list[EmployeeOut])
 async def list_employees(session: AsyncSession = Depends(get_session)):
     """Сотрудники."""
-    return (await session.execute(select(Employee).order_by(Employee.id.desc()))).scalars().all()
+    rows = (await session.execute(
+        select(Employee, EmployeeProfile.status).outerjoin(
+            EmployeeProfile, EmployeeProfile.employee_id == Employee.id,
+        ).order_by(Employee.id.desc())
+    )).all()
+    return [EmployeeOut.model_validate(employee).model_copy(update={
+        "profile_status": profile_status or "not_started",
+    }) for employee, profile_status in rows]
 
 
 @router.post("/employees", response_model=EmployeeOut, status_code=201)

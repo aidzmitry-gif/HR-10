@@ -19,6 +19,7 @@ class EmployeeOut(BaseModel):
     position: str
     department: str
     status: str
+    profile_status: str = "not_started"
 
 
 class CandidateCreate(BaseModel):
