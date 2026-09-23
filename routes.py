@@ -209,19 +209,27 @@ async def payroll_pay(
     core: Core = Depends(get_core),
     session: AsyncSession = Depends(get_session),
 ):
-    """Выплатить начисленную зарплату (status pending → paid).
+    """Отметить конкретную HR-запись выплаченной.
 
-    Ищет PayrollEntry по employee_id+period+status=pending.
-    Идемпотентен: если pending-записи нет — 404.
+    Старый вызов без entry_id допускается только при единственной pending-записи
+    сотрудника за период. Эта ручная отметка не подтверждает банковский платёж.
     """
-    row = await session.execute(
-        select(PayrollEntry).where(
-            PayrollEntry.employee_id == payload.employee_id,
-            PayrollEntry.period == payload.period,
-            PayrollEntry.status == "pending",
-        )
+    query = select(PayrollEntry).where(
+        PayrollEntry.employee_id == payload.employee_id,
+        PayrollEntry.period == payload.period,
+        PayrollEntry.status == "pending",
     )
-    entry = row.scalars().first()
+    if payload.entry_id is None:
+        rows = (await session.execute(
+            query.order_by(PayrollEntry.id).limit(2).with_for_update()
+        )).scalars().all()
+        if len(rows) > 1:
+            raise HTTPException(status_code=409, detail="Укажите конкретное начисление")
+        entry = rows[0] if rows else None
+    else:
+        entry = await session.scalar(
+            query.where(PayrollEntry.id == payload.entry_id).with_for_update()
+        )
     if entry is None:
         raise HTTPException(status_code=404, detail="Начисление не найдено или уже выплачено")
 

@@ -74,6 +74,7 @@ class PayrollPayIn(BaseModel):
 
     employee_id: int = Field(gt=0, strict=True)
     period: str = Field(strict=True, pattern=r"^[1-9][0-9]{3}-(?:0[1-9]|1[0-2])$")
+    entry_id: int | None = Field(default=None, gt=0, strict=True)
 
 
 class PayrollEntryOut(BaseModel):
