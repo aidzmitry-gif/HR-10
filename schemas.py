@@ -1,7 +1,9 @@
 """Pydantic-схемы модуля HR."""
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from decimal import Decimal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class EmployeeCreate(BaseModel):
@@ -52,14 +54,26 @@ class StageUpdate(BaseModel):
 
 
 class PayrollAccrueIn(BaseModel):
-    employee_id: int
-    period: str  # "YYYY-MM"
-    amount_byn: str  # Decimal as str
+    model_config = ConfigDict(extra="forbid")
+
+    employee_id: int = Field(gt=0, strict=True)
+    period: str = Field(strict=True, pattern=r"^[1-9][0-9]{3}-(?:0[1-9]|1[0-2])$")
+    amount_byn: str = Field(strict=True, pattern=r"^(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,2})?$")
+
+    @field_validator("amount_byn")
+    @classmethod
+    def positive_byn(cls, value: str) -> str:
+        amount = Decimal(value)
+        if amount <= 0:
+            raise ValueError("Payroll amount must be positive")
+        return f"{amount:.2f}"
 
 
 class PayrollPayIn(BaseModel):
-    employee_id: int
-    period: str  # "YYYY-MM"
+    model_config = ConfigDict(extra="forbid")
+
+    employee_id: int = Field(gt=0, strict=True)
+    period: str = Field(strict=True, pattern=r"^[1-9][0-9]{3}-(?:0[1-9]|1[0-2])$")
 
 
 class PayrollEntryOut(BaseModel):
