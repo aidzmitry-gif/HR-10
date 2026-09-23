@@ -11,7 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.runtime.core import Core
 from core.runtime.deps import get_core, get_session
 from core.runtime.funnel import FunnelBoardOut, FunnelCard, build_board
+from core.services.auth import CurrentUser, GUEST, get_current_user
 from modules.hr.models import Candidate, Employee, EmployeeProfile, OkkScore, PayrollEntry
+from modules.hr.payroll_preview import calculate_payroll_preview
+from modules.hr.payroll_policy import calculate_payroll_policy_preview
 from modules.hr.schemas import (
     CandidateCreate,
     CandidateOut,
@@ -23,6 +26,10 @@ from modules.hr.schemas import (
     PayrollEntryOut,
     PayrollPayIn,
     PayrollPeriodSummary,
+    PayrollPreviewIn,
+    PayrollPreviewOut,
+    PayrollPolicyPreviewIn,
+    PayrollPolicyPreviewOut,
     StageUpdate,
 )
 from modules.hr.stages import STAGES
@@ -115,6 +122,35 @@ async def update_candidate(
 
 
 # --- Зарплата (payroll) ---
+
+
+@router.post("/payroll/preview", response_model=PayrollPreviewOut)
+def payroll_preview(payload: PayrollPreviewIn):
+    """Предпросмотр от месячной суммы на руки; без БД, начисления, выплаты и outbox."""
+    try:
+        return calculate_payroll_preview(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/payroll/policy-preview", response_model=PayrollPolicyPreviewOut)
+def payroll_policy_preview(
+    payload: PayrollPolicyPreviewIn,
+    actor: CurrentUser = Depends(get_current_user),
+):
+    """Document-sourced draft only; no DB, accrual, payment or outbox."""
+    if GUEST in actor.roles or not actor.roles:
+        raise HTTPException(status_code=403, detail="Требуется роль ERP")
+    can_manual = "director" in actor.roles
+    if not can_manual and any(
+        month.mode == "manual"
+        for employee in payload.employees for month in employee.months
+    ):
+        raise HTTPException(status_code=403, detail="Ручная корректировка доступна только директору")
+    try:
+        return calculate_payroll_policy_preview(payload, can_manual=can_manual)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/payroll", response_model=list[PayrollEntryOut])
