@@ -4,17 +4,20 @@ from __future__ import annotations
 from decimal import Decimal
 from itertools import groupby
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from core.runtime.core import Core
 from core.runtime.deps import get_core, get_session
 from core.runtime.funnel import FunnelBoardOut, FunnelCard, build_board
-from core.services.auth import CurrentUser, GUEST, get_current_user
-from modules.hr.models import Candidate, Employee, EmployeeProfile, OkkScore, PayrollEntry
-from modules.hr.payroll_preview import calculate_payroll_preview
+from core.services.auth import GUEST, CurrentUser, get_current_user
+from fastapi import APIRouter, Depends, HTTPException
+from modules.hr.models import (
+    Candidate,
+    Employee,
+    EmployeeProfile,
+    OkkScore,
+    PayrollEntry,
+)
 from modules.hr.payroll_policy import calculate_payroll_policy_preview
+from modules.hr.payroll_preview import calculate_payroll_preview
 from modules.hr.schemas import (
     CandidateCreate,
     CandidateOut,
@@ -26,13 +29,15 @@ from modules.hr.schemas import (
     PayrollEntryOut,
     PayrollPayIn,
     PayrollPeriodSummary,
-    PayrollPreviewIn,
-    PayrollPreviewOut,
     PayrollPolicyPreviewIn,
     PayrollPolicyPreviewOut,
+    PayrollPreviewIn,
+    PayrollPreviewOut,
     StageUpdate,
 )
 from modules.hr.stages import STAGES
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["hr"])
 

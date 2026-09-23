@@ -10,8 +10,11 @@ from decimal import Decimal, localcontext
 
 from modules.hr.payroll_preview import _find_gross, _money
 from modules.hr.schemas import (
-    PayrollPolicyEmployeeIn, PayrollPolicyMonthIn, PayrollPolicyPreviewIn,
-    PayrollPolicyPreviewOut, PayrollPolicyRowOut,
+    PayrollPolicyEmployeeIn,
+    PayrollPolicyMonthIn,
+    PayrollPolicyPreviewIn,
+    PayrollPolicyPreviewOut,
+    PayrollPolicyRowOut,
 )
 
 ZERO = Decimal("0")
