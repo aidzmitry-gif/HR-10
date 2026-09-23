@@ -4,11 +4,14 @@ from __future__ import annotations
 from decimal import Decimal
 from itertools import groupby
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.runtime.core import Core
 from core.runtime.deps import get_core, get_session
 from core.runtime.funnel import FunnelBoardOut, FunnelCard, build_board
 from core.services.auth import GUEST, CurrentUser, get_current_user
-from fastapi import APIRouter, Depends, HTTPException
 from modules.hr.models import (
     Candidate,
     Employee,
@@ -36,8 +39,6 @@ from modules.hr.schemas import (
     StageUpdate,
 )
 from modules.hr.stages import STAGES
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["hr"])
 
